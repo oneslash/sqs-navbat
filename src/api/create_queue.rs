@@ -3,14 +3,13 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use tracing::{info, error};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct CreateQueueParams {
-    action: String,
     queue_name: String,
-    version: String,
     #[serde(flatten)]
     extra: HashMap<String, String>,
 
@@ -44,8 +43,13 @@ impl CreateQueueParams {
     fn populate_attributes(&mut self) {
         // Let's live dangerously and unwrap this
         let re = Regex::new(r"Attribute\.(\d+)\.(.+)$").unwrap();
-
         let mut attrs: Vec<CreateQueueAttributes> = Vec::new();
+        for _i in 0..self.extra.len() {
+            attrs.push(CreateQueueAttributes {
+                name: "".to_string(),
+                value: "".to_string(),
+            });
+        }
 
         for (key, value) in self.extra.iter() {
             if let Some(caps) = re.captures(key) {
@@ -81,13 +85,9 @@ impl CreateQueueParams {
 pub async fn process(
     db: &Pool<SqliteConnectionManager>,
     payload: &web::Bytes,
-    is_json: bool,
+    _is_json: bool,
 ) -> HttpResponse {
-    if is_json {
-        return HttpResponse::BadRequest().body("JSON is not supported for this endpoint");
-    }
-
-    let mut payload = match super::create_stuct_from_payload::<CreateQueueParams>(payload) {
+    let mut payload = match super::struct_from_url_encode::<CreateQueueParams>(payload) {
         Ok(p) => p,
         Err(e) => return HttpResponse::BadRequest().body(format!("Failed to parse payload: {}", e)),
     };
@@ -101,6 +101,7 @@ pub async fn process(
         tag: ("tag_name".to_string(), "tag_value".to_string()),
     });
 
+    info!("Creating queue: {:?}", payload.attributes);
     match db_result {
         Ok(_) => {
             let response = CreateQueueResponse {

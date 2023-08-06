@@ -1,7 +1,7 @@
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
 use clap::Parser;
 use r2d2_sqlite::SqliteConnectionManager;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 mod api;
 mod queue;
@@ -16,11 +16,14 @@ struct CliParams {
     port: u16,
     #[clap(short, long, default_value = "database.db")]
     db_path: String,
+    #[clap(long, default_value = "http://locahost")]
+    host_name: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub db_pool: r2d2::Pool<SqliteConnectionManager>,
+    pub host_name: String,
 }
 
 #[actix_web::main]
@@ -28,6 +31,7 @@ async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli_params = CliParams::parse();
+    let host_name = format!("{}:{}", cli_params.host_name, cli_params.port);
 
     info!("Creating database connection ...");
     let conn_manager = SqliteConnectionManager::file(cli_params.db_path);
@@ -42,7 +46,10 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    let state = AppState { db_pool: pool };
+    let state = AppState {
+        db_pool: pool,
+        host_name,
+    };
 
     info!("Starting server ...");
     HttpServer::new(move || {

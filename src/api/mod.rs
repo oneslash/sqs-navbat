@@ -2,12 +2,14 @@ use crate::AppState;
 use actix_web::{post, web, HttpRequest, HttpResponse};
 use quick_xml::de::from_str;
 use serde::{de::DeserializeOwned, Deserialize};
+use tracing::error;
 
 mod create_queue;
 mod list_queues;
 mod send_message;
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 struct RequestPayload {
     action: String,
 }
@@ -25,18 +27,39 @@ pub async fn post_handler(
 
     let is_json = action.starts_with("AmazonSQS");
 
+    if is_json {
+        return HttpResponse::BadRequest().body("JSON is not supported yet");
+    }
+
     return match action.to_lowercase().as_str() {
         "amazonsqs.createqueue" | "createqueue" => {
-            create_queue::process(&db.db_pool, payload, is_json).await
+            create_queue::process(&db.db_pool, &payload, is_json).await
         }
-        "amazonsqs.listqueues" => list_queues::process(&db.db_pool, payload).await,
-        "amazonsqs.sendmessage" => send_message::process(&db.db_pool, payload).await,
+        "amazonsqs.listqueues" | "listqueues" => {
+            list_queues::process(&db.db_pool, &payload, is_json).await
+        }
+        "amazonsqs.sendmessage" => send_message::process(&db.db_pool, &payload).await,
         _ => return HttpResponse::BadRequest().body("Invalid action"),
     };
 }
 
+pub(crate) fn struct_from_url_encode<T>(payload: &web::Bytes) -> Result<T, actix_web::Error>
+where
+    T: DeserializeOwned,
+{
+    // Convert the Bytes to a &[u8]
+    let bytes = payload.as_ref();
+
+    // Now convert the URL-encoded bytes to a struct
+    let result: T = serde_urlencoded::from_bytes(bytes).map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!("Failed to parse payload: {}", e))
+    })?;
+
+    Ok(result)
+}
+
 /// Create a struct from the payload (web::Bytes)
-pub(crate) fn create_stuct_from_payload<T>(payload: &web::Bytes) -> Result<T, actix_web::Error>
+pub(crate) fn struct_from_xml_payload<T>(payload: &web::Bytes) -> Result<T, actix_web::Error>
 where
     T: DeserializeOwned,
 {
@@ -57,17 +80,14 @@ where
 }
 
 fn get_action_name(payload: &web::Bytes, req: &HttpRequest) -> Option<String> {
-    let action: &str = match req.headers().get("x-amz-target") {
-        Some(target) => target.to_str().unwrap(),
+    return match req.headers().get("x-amz-target") {
+        Some(target) => Some(target.to_str().unwrap().to_string()),
         None => {
-            let action: Option<RequestPayload> =
-                create_stuct_from_payload(&payload).unwrap_or(None);
-            if action.is_none() {
+            let act = struct_from_url_encode::<RequestPayload>(&payload);
+            if act.is_err() {
                 return None;
             }
-            action.unwrap().action.as_str()
+            Some(act.unwrap().action.to_string())
         }
     };
-
-    Some(action.to_string())
 }

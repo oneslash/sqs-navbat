@@ -67,8 +67,4 @@ impl<'a> Queue<'a> {
             Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
         };
     }
-
-    pub fn list_queues(&self) -> Vec<QueueEntity> {
-        unimplemented!()
-    }
 }

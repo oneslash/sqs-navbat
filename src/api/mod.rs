@@ -3,6 +3,7 @@ use actix_web::{post, web, HttpRequest, HttpResponse};
 use quick_xml::de::from_str;
 use serde::{de::DeserializeOwned, Deserialize};
 
+mod helpers;
 mod create_queue;
 mod list_queues;
 mod send_message;
@@ -36,7 +37,7 @@ pub async fn post_handler(
         "amazonsqs.listqueues" | "listqueues" => {
             list_queues::process(&app_state, &payload, is_json).await
         }
-        "amazonsqs.sendmessage" => send_message::process(&app_state.db_pool, &payload).await,
+        "amazonsqs.sendmessage" | "sendmessage" => send_message::process(&app_state, &payload, is_json).await,
         _ => return HttpResponse::BadRequest().body("Invalid action"),
     };
 }

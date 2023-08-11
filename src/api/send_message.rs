@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, web};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
 
-pub async fn process(_db: &Pool<SqliteConnectionManager>, payload: &web::Bytes) -> HttpResponse {
+use crate::AppState;
+
+pub async fn process(app_state: &AppState, payload: &web::Bytes, is_json: bool) -> HttpResponse {
     todo!()
 }

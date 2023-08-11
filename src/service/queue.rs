@@ -91,6 +91,10 @@ impl<'a> Queue<'a> {
         Ok(queue_urls)
     }
 
+    pub fn send_message(&self) {
+        todo!()
+    }
+
     #[inline]
     fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, std::io::Error> {
         match self.db_pool.get() {

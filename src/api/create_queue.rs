@@ -2,9 +2,11 @@ use actix_web::{web, HttpResponse};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info};
+use tracing::info;
 
-use crate::AppState;
+use crate::{AppState, api::helpers};
+
+use super::helpers::ParamValues;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -15,7 +17,7 @@ pub struct CreateQueueParams {
 
     #[serde(skip)]
     /// This will be populated when you call populate attributes method
-    attributes: Option<Vec<CreateQueueAttributes>>,
+    attributes: Option<Vec<ParamValues>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,43 +43,12 @@ pub struct CreateQueueResult {
 impl CreateQueueParams {
     /// Populate the attributes from the extra hashmap
     fn populate_attributes(&mut self) {
-        // Let's live dangerously and unwrap this
-        let re = Regex::new(r"Attribute\.(\d+)\.(.+)$").unwrap();
-        let mut attrs: Vec<CreateQueueAttributes> = Vec::new();
-        for _i in 0..self.extra.len() {
-            attrs.push(CreateQueueAttributes {
-                name: "".to_string(),
-                value: "".to_string(),
-            });
-        }
-
-        for (key, value) in self.extra.iter() {
-            if let Some(caps) = re.captures(key) {
-                let index = caps.get(1).unwrap().as_str().parse::<usize>().unwrap();
-                let attr_name = caps.get(2).unwrap().as_str().to_string();
-
-                match attr_name.as_str() {
-                    "Name" => attrs[index - 1].name = value.to_string(),
-                    "Value" => attrs[index - 1].value = value.to_string(),
-                    _ => (),
-                }
-            }
-        }
-
-        self.attributes = Some(attrs);
+        self.attributes = helpers::populate_attributes(self.extra.clone());
     }
 
     /// Get the attributes as a hashmap
     fn get_attrbutes_hashmap(self) -> HashMap<String, String> {
-        let mut map = HashMap::new();
-
-        if let Some(attrs) = self.attributes {
-            for attr in attrs {
-                map.insert(attr.name, attr.value);
-            }
-        }
-
-        return map;
+        helpers::get_attrbutes_hashmap(self.attributes)
     }
 }
 
@@ -89,6 +60,8 @@ pub async fn process(app_state: &AppState, payload: &web::Bytes, _is_json: bool)
             return HttpResponse::BadRequest().body(format!("Failed to parse payload: {}", e))
         }
     };
+
+    
     payload.populate_attributes();
 
     let db = &app_state.db_pool;

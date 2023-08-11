@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
-    id: String,
+    pub id: String,
+    pub message_body: String
 }
 
 #[derive(Debug, Clone, PartialEq)]

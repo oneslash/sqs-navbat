@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
 use clap::Parser;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -5,7 +10,7 @@ use tracing::{error, info};
 
 mod api;
 mod queue;
-pub mod service;
+mod service;
 
 #[derive(clap::Parser, Debug)]
 #[command(author, about, version)]
@@ -24,6 +29,7 @@ struct CliParams {
 pub struct AppState {
     pub db_pool: r2d2::Pool<SqliteConnectionManager>,
     pub host_name: String,
+    pub queues: Arc<Mutex<HashMap<String, queue::Queue>>>,
 }
 
 #[actix_web::main]
@@ -49,6 +55,7 @@ async fn main() -> std::io::Result<()> {
     let state = AppState {
         db_pool: pool,
         host_name,
+        queues: Arc::new(Mutex::new(HashMap::new())),
     };
 
     info!("Starting server ...");

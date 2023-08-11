@@ -1,10 +1,10 @@
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use tracing::info;
 
-use crate::AppState;
 use super::helpers;
+use crate::AppState;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -16,13 +16,6 @@ pub struct CreateQueueParams {
     #[serde(skip)]
     /// This will be populated when you call populate attributes method
     attributes: Option<Vec<helpers::ParamValues>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct CreateQueueAttributes {
-    name: String,
-    value: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,7 +44,7 @@ impl CreateQueueParams {
 }
 
 /// Create a queue with the given name and attributes
-pub async fn process(app_state: &AppState, payload: &web::Bytes, _is_json: bool) -> HttpResponse {
+pub async fn process(app_state: Arc<AppState>, payload: &web::Bytes, _is_json: bool) -> HttpResponse {
     let mut payload = match super::struct_from_url_encode::<CreateQueueParams>(payload) {
         Ok(p) => p,
         Err(e) => {
@@ -59,7 +52,6 @@ pub async fn process(app_state: &AppState, payload: &web::Bytes, _is_json: bool)
         }
     };
 
-    
     payload.populate_attributes();
 
     let db = &app_state.db_pool;
@@ -71,7 +63,6 @@ pub async fn process(app_state: &AppState, payload: &web::Bytes, _is_json: bool)
         tag: ("tag_name".to_string(), "tag_value".to_string()),
     });
 
-    info!("Creating queue: {:?}", payload.attributes);
     match db_result {
         Ok(_) => {
             let response = CreateQueueResponse {
@@ -81,6 +72,11 @@ pub async fn process(app_state: &AppState, payload: &web::Bytes, _is_json: bool)
                 reponse_metadata: HashMap::new(),
             };
 
+            app_state.queues.try_lock().unwrap().insert(
+                payload.queue_name.clone(),
+                crate::queue::Queue::new(&payload.queue_name.clone(), vec![]),
+            );
+            
             return match quick_xml::se::to_string(&response) {
                 Ok(resp) => HttpResponse::Ok().body(resp),
                 Err(e) => HttpResponse::InternalServerError()

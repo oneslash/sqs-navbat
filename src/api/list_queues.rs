@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
 use tracing::error;
+use uuid::Uuid;
 
 use crate::AppState;
 
@@ -39,11 +40,7 @@ struct ResponseMetadata {
     request_id: String,
 }
 
-pub async fn process(
-    app_state: &AppState,
-    payload: &web::Bytes,
-    is_json: bool,
-) -> HttpResponse {
+pub async fn process(app_state: &AppState, payload: &web::Bytes, is_json: bool) -> HttpResponse {
     let params = match get_params(payload, is_json) {
         Some(params) => params,
         None => return HttpResponse::BadRequest().finish(),
@@ -62,9 +59,14 @@ pub async fn process(
         }
     };
     
-    let response = ListQueuesResponse { 
-        list_queues_result: ListQueuesResult { queue_url: queue_urls },
-        response_metadata: ResponseMetadata { request_id: "00000000-0000-0000-0000-000000000000".to_string() },
+    let id = Uuid::new_v4();
+    let response = ListQueuesResponse {
+        list_queues_result: ListQueuesResult {
+            queue_url: queue_urls,
+        },
+        response_metadata: ResponseMetadata {
+            request_id: id.to_string(),
+        },
     };
 
     let response = match quick_xml::se::to_string(&response) {

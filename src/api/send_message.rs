@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 use super::helpers;
 use crate::AppState;
@@ -63,8 +64,8 @@ pub async fn process(
     };
     payload.populate_attributes();
 
+    error!("Payload: {:?}", payload);
     let mut writer = app_state.queues.lock().await;
-
     (*writer)
         .get_mut("myqueue")
         .unwrap()

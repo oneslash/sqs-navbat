@@ -1,6 +1,10 @@
 use actix_web::{web, HttpResponse};
 use serde::Serialize;
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use tracing::error;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use crate::AppState;
 
@@ -14,7 +18,7 @@ struct ReceiveMessageResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct ReceiveMessageResult {
-    message: Vec<Message>,
+    messages: Vec<Message>,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -40,12 +44,14 @@ pub async fn process(
     _payload: &web::Bytes,
     _is_json: bool,
 ) -> HttpResponse {
-    let mut reader =  app_state.queues.lock().await;
+    let mut reader = app_state.queues.lock().await;
 
     let message = (*reader).get_mut("myqueue").unwrap().pop();
+
+    error!("Payload: {:?}", message);
     let response = ReceiveMessageResponse {
         receive_message_result: ReceiveMessageResult {
-            message: vec![Message {
+            messages: vec![Message {
                 message_id: "".to_string(),
                 receipt_handle: "".to_string(),
                 md5_of_body: "".to_string(),

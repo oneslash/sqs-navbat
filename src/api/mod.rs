@@ -2,7 +2,6 @@ use crate::AppState;
 use actix_web::{post, web, HttpRequest, HttpResponse};
 use quick_xml::de::from_str;
 use serde::{de::DeserializeOwned, Deserialize};
-use tracing::error;
 
 mod create_queue;
 mod list_queues;
@@ -16,7 +15,7 @@ struct RequestPayload {
 
 #[post("/")]
 pub async fn post_handler(
-    db: web::Data<AppState>,
+    app_state: web::Data<AppState>,
     payload: web::Bytes,
     req: HttpRequest,
 ) -> HttpResponse {
@@ -26,19 +25,18 @@ pub async fn post_handler(
     };
 
     let is_json = action.starts_with("AmazonSQS");
-
     if is_json {
         return HttpResponse::BadRequest().body("JSON is not supported yet");
     }
 
     return match action.to_lowercase().as_str() {
         "amazonsqs.createqueue" | "createqueue" => {
-            create_queue::process(&db.db_pool, &payload, is_json).await
+            create_queue::process(&app_state, &payload, is_json).await
         }
         "amazonsqs.listqueues" | "listqueues" => {
-            list_queues::process(&db.db_pool, &payload, is_json).await
+            list_queues::process(&app_state, &payload, is_json).await
         }
-        "amazonsqs.sendmessage" => send_message::process(&db.db_pool, &payload).await,
+        "amazonsqs.sendmessage" => send_message::process(&app_state.db_pool, &payload).await,
         _ => return HttpResponse::BadRequest().body("Invalid action"),
     };
 }

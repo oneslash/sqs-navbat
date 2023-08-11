@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
 pub struct Queue<'a> {
     db_pool: &'a r2d2::Pool<SqliteConnectionManager>,
+    hostname: &'a str,
 }
 
 #[derive(Debug, Clone)]
@@ -15,8 +17,8 @@ pub struct QueueEntity {
 }
 
 impl<'a> Queue<'a> {
-    pub fn new(db_pool: &'a r2d2::Pool<SqliteConnectionManager>) -> Self {
-        Queue { db_pool }
+    pub fn new(db_pool: &'a r2d2::Pool<SqliteConnectionManager>, hostname: &'a str) -> Self {
+        Queue { db_pool, hostname }
     }
 
     /// Create queue attributes in the database
@@ -54,11 +56,8 @@ impl<'a> Queue<'a> {
 
     /// Get queue in the database
     pub fn create_queue(&self, queue: QueueEntity) -> Result<String, std::io::Error> {
-        let conn = match self.db_pool.get() {
-            Ok(conn) => conn,
-            Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-        };
-
+        let conn = self.get_conn()?; 
+        
         return match conn.execute(
             "INSERT INTO `queues` (`name`, `tag_name`, `tag_value`) VALUES (?1, ?2, ?3)",
             &[&queue.name, &queue.tag.0, &queue.tag.1],
@@ -66,5 +65,37 @@ impl<'a> Queue<'a> {
             Ok(_) => Ok(conn.last_insert_rowid().to_string()),
             Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
         };
+    }
+
+    pub fn list_queue(
+        &self,
+        max_results: u32,
+        _queue_name_prefix: Option<String>,
+        _next_token: Option<String>,
+    ) -> Result<Vec<String>, std::io::Error> {
+        let conn = self.get_conn()?; 
+        let mut stmt = conn.prepare(r#"SELECT * FROM queues LIMIT ?1"#).unwrap();
+        let mut rows = match stmt.query([max_results]) {
+            Ok(rows) => rows,
+            Err(e) => {
+                return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+            }
+        };
+
+        let mut queue_urls: Vec<String> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            let queue_name: String = row.get(1).unwrap();
+            queue_urls.push(format!("{}/{}", self.hostname, queue_name));
+        }
+
+        Ok(queue_urls)
+    }
+
+    #[inline]
+    fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, std::io::Error> {
+        match self.db_pool.get() {
+            Ok(conn) => Ok(conn),
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+        }
     }
 }

@@ -1,10 +1,10 @@
-use actix_web::{HttpResponse, web};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
+use actix_web::{web, HttpResponse};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
 use std::collections::HashMap;
+use tracing::{info};
+
+use crate::AppState;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -57,8 +57,8 @@ impl CreateQueueParams {
                 let attr_name = caps.get(2).unwrap().as_str().to_string();
 
                 match attr_name.as_str() {
-                    "Name" => attrs[index-1].name = value.to_string(),
-                    "Value" => attrs[index-1].value = value.to_string(),
+                    "Name" => attrs[index - 1].name = value.to_string(),
+                    "Value" => attrs[index - 1].value = value.to_string(),
                     _ => (),
                 }
             }
@@ -82,18 +82,17 @@ impl CreateQueueParams {
 }
 
 /// Create a queue with the given name and attributes
-pub async fn process(
-    db: &Pool<SqliteConnectionManager>,
-    payload: &web::Bytes,
-    _is_json: bool,
-) -> HttpResponse {
+pub async fn process(app_state: &AppState, payload: &web::Bytes, _is_json: bool) -> HttpResponse {
     let mut payload = match super::struct_from_url_encode::<CreateQueueParams>(payload) {
         Ok(p) => p,
-        Err(e) => return HttpResponse::BadRequest().body(format!("Failed to parse payload: {}", e)),
+        Err(e) => {
+            return HttpResponse::BadRequest().body(format!("Failed to parse payload: {}", e))
+        }
     };
     payload.populate_attributes();
 
-    let service = crate::service::queue::Queue::new(db);
+    let db = &app_state.db_pool;
+    let service = crate::service::queue::Queue::new(db, &app_state.host_name);
     let db_result = service.create_queue(crate::service::queue::QueueEntity {
         id: None,
         name: payload.queue_name.clone(),

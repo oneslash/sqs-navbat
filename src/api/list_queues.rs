@@ -1,8 +1,8 @@
 use actix_web::{web, HttpResponse};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
 use serde::{Deserialize, Serialize};
 use tracing::error;
+
+use crate::AppState;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -40,7 +40,7 @@ struct ResponseMetadata {
 }
 
 pub async fn process(
-    db: &Pool<SqliteConnectionManager>,
+    app_state: &AppState,
     payload: &web::Bytes,
     is_json: bool,
 ) -> HttpResponse {
@@ -49,36 +49,24 @@ pub async fn process(
         None => return HttpResponse::BadRequest().finish(),
     };
 
-    let conn = match db.get() {
-        Ok(conn) => conn,
+    let service = crate::service::queue::Queue::new(&app_state.db_pool, &app_state.host_name);
+    let queue_urls = match service.list_queue(
+        params.max_results as u32,
+        params.queue_name_prefix,
+        params.next_token,
+    ) {
+        Ok(queue_urls) => queue_urls,
         Err(e) => {
-            error!("Failed to get connection from pool: {}", e);
+            error!("Failed to list queues: {}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
-
-    let mut stmt = conn.prepare(r#"SELECT * FROM queues LIMIT ?1"#).unwrap();
-
-    let mut rows = match stmt.query(&[&params.max_results]) {
-        Ok(rows) => rows,
-        Err(e) => {
-            error!("Failed to query database: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let mut queue_urls: Vec<String> = Vec::new();
-    while let Some(row) = rows.next().unwrap() {
-        let queue_url: String = row.get(1).unwrap();
-        queue_urls.push(queue_url);
-    }
-
+    
     let response = ListQueuesResponse { 
         list_queues_result: ListQueuesResult { queue_url: queue_urls },
         response_metadata: ResponseMetadata { request_id: "00000000-0000-0000-0000-000000000000".to_string() },
     };
 
-    error!("Response: {:?}", response);
     let response = match quick_xml::se::to_string(&response) {
         Ok(response) => response,
         Err(e) => {

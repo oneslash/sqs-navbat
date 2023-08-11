@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
@@ -12,7 +12,7 @@ pub struct QueueTags {
     value: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Queue {
     name: String,
     tags: Vec<QueueTags>,

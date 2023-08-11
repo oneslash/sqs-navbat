@@ -21,3 +21,4 @@ tracing-subscriber = "0.3.17"
 regex = "1.9.1"
 serde_urlencoded = "0.7.1"
 uuid = { version = "1.4.1", features = ["v4"] }
+tokio = { version = "1.30.0", features = ["full"] }

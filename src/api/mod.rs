@@ -3,11 +3,11 @@ use actix_web::{post, web, HttpRequest, HttpResponse};
 use quick_xml::de::from_str;
 use serde::{de::DeserializeOwned, Deserialize};
 
-mod helpers;
 mod create_queue;
+mod helpers;
 mod list_queues;
-mod send_message;
 mod receive_message;
+mod send_message;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -33,13 +33,32 @@ pub async fn post_handler(
 
     return match action.to_lowercase().as_str() {
         "amazonsqs.createqueue" | "createqueue" => {
-            create_queue::process(app_state.into_inner(), &payload, is_json).await
+            create_queue::process(
+                app_state.into_inner(),
+                &payload,
+                is_json,
+            )
+            .await
         }
         "amazonsqs.listqueues" | "listqueues" => {
             list_queues::process(&app_state, &payload, is_json).await
         }
-        "amazonsqs.sendmessage" | "sendmessage" => send_message::process(app_state.into_inner(), &payload, is_json).await,
-        "amazonsqs.receivemessage" | "receivemessage" => receive_message::process(app_state.into_inner(), &payload, is_json).await, 
+        "amazonsqs.sendmessage" | "sendmessage" => {
+            send_message::process(
+                app_state.into_inner(),
+                &payload,
+                is_json,
+            )
+            .await
+        }
+        "amazonsqs.receivemessage" | "receivemessage" => {
+            receive_message::process(
+                app_state.into_inner(),
+                &payload,
+                is_json,
+            )
+            .await
+        }
         _ => return HttpResponse::BadRequest().body("Invalid action"),
     };
 }

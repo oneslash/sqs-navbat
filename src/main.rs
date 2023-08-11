@@ -1,12 +1,9 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
-
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
 use clap::Parser;
 use r2d2_sqlite::SqliteConnectionManager;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{error, info};
+use tokio::sync::Mutex;
 
 mod api;
 mod queue;
@@ -52,10 +49,11 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
+    let queue_list: HashMap<String, queue::Queue> = HashMap::new();
     let state = AppState {
         db_pool: pool,
         host_name,
-        queues: Arc::new(Mutex::new(HashMap::new())),
+        queues: Arc::new(Mutex::new(queue_list)),
     };
 
     info!("Starting server ...");

@@ -1,7 +1,6 @@
 use actix_web::{web, HttpResponse};
 use serde::Serialize;
-use tracing::error;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use crate::AppState;
 
@@ -15,7 +14,7 @@ struct ReceiveMessageResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct ReceiveMessageResult {
-    messages: Vec<Message>,
+    message: Vec<Message>,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -38,23 +37,15 @@ struct ResponseMetadata {
 
 pub async fn process(
     app_state: Arc<AppState>,
-    payload: &web::Bytes,
-    is_json: bool,
+    _payload: &web::Bytes,
+    _is_json: bool,
 ) -> HttpResponse {
-    let mut reader = match app_state.queues.lock() {
-        Ok(r) => r,
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .body(format!("Failed to get read lock on queues: {}", e))
-        }
-    };
+    let mut reader =  app_state.queues.lock().await;
 
-    let message = reader.get_mut("myqueue").unwrap().pop();
-
-    error!("Message: {:?}", message);
+    let message = (*reader).get_mut("myqueue").unwrap().pop();
     let response = ReceiveMessageResponse {
         receive_message_result: ReceiveMessageResult {
-            messages: vec![Message {
+            message: vec![Message {
                 message_id: "".to_string(),
                 receipt_handle: "".to_string(),
                 md5_of_body: "".to_string(),
@@ -68,8 +59,6 @@ pub async fn process(
             request_id: "".to_string(),
         },
     };
-
-    
 
     return match quick_xml::se::to_string(&response) {
         Ok(resp) => HttpResponse::Ok().body(resp),

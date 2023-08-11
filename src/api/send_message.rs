@@ -50,7 +50,11 @@ impl SendMessageParams {
     }
 }
 
-pub async fn process(app_state: Arc<AppState>, payload: &web::Bytes, is_json: bool) -> HttpResponse {
+pub async fn process(
+    app_state: Arc<AppState>,
+    payload: &web::Bytes,
+    _is_json: bool,
+) -> HttpResponse {
     let mut payload = match super::struct_from_url_encode::<SendMessageParams>(payload) {
         Ok(p) => p,
         Err(e) => {
@@ -59,17 +63,10 @@ pub async fn process(app_state: Arc<AppState>, payload: &web::Bytes, is_json: bo
     };
     payload.populate_attributes();
 
-    let mut writer = match app_state.queues.lock() {
-        Ok(w) => w,
-        Err(e) => {
-            return HttpResponse::InternalServerError().body(format!(
-                "Failed to get write lock on queues: {}",
-                e
-            ))
-        }
-    };
+    let mut writer = app_state.queues.lock().await;
 
-    writer.get_mut("myqueue")
+    (*writer)
+        .get_mut("myqueue")
         .unwrap()
         .push(crate::queue::Message {
             id: "".to_string(),

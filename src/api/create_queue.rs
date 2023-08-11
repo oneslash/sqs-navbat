@@ -1,8 +1,9 @@
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
-use tracing::info;
-
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 use super::helpers;
 use crate::AppState;
 
@@ -44,14 +45,17 @@ impl CreateQueueParams {
 }
 
 /// Create a queue with the given name and attributes
-pub async fn process(app_state: Arc<AppState>, payload: &web::Bytes, _is_json: bool) -> HttpResponse {
+pub async fn process(
+    app_state: Arc<AppState>,
+    payload: &web::Bytes,
+    _is_json: bool,
+) -> HttpResponse {
     let mut payload = match super::struct_from_url_encode::<CreateQueueParams>(payload) {
         Ok(p) => p,
         Err(e) => {
             return HttpResponse::BadRequest().body(format!("Failed to parse payload: {}", e))
         }
     };
-
     payload.populate_attributes();
 
     let db = &app_state.db_pool;
@@ -67,16 +71,17 @@ pub async fn process(app_state: Arc<AppState>, payload: &web::Bytes, _is_json: b
         Ok(_) => {
             let response = CreateQueueResponse {
                 create_queue_result: CreateQueueResult {
-                    queue_url: format!("http://localhost:8000/queues/{}", payload.queue_name),
+                    queue_url: format!("{}/{}", &app_state.host_name, payload.queue_name),
                 },
                 reponse_metadata: HashMap::new(),
             };
 
-            app_state.queues.try_lock().unwrap().insert(
+            let mut writer = app_state.queues.lock().await;
+            (*writer).insert(
                 payload.queue_name.clone(),
                 crate::queue::Queue::new(&payload.queue_name.clone(), vec![]),
             );
-            
+
             return match quick_xml::se::to_string(&response) {
                 Ok(resp) => HttpResponse::Ok().body(resp),
                 Err(e) => HttpResponse::InternalServerError()

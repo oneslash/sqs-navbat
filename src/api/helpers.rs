@@ -33,6 +33,9 @@ pub fn populate_attributes(extra: HashMap<String, String>) -> Option<Vec<ParamVa
             }
         }
     }
+    
+    // Cleanup empty attributes
+    attrs.retain(|attr| attr.name != "");
 
     Some(attrs)
 }
@@ -48,3 +51,28 @@ pub fn get_attrbutes_hashmap(attributes: Option<Vec<ParamValues>>) -> HashMap<St
 
     return map;
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    /// test populate_attributes
+    #[test]
+    fn test_populate_attributes() {
+        let mut extra = HashMap::new();
+        extra.insert("Attribute.1.Name".to_string(), "DelaySeconds".to_string());
+        extra.insert("Attribute.1.Value".to_string(), "10".to_string());
+        extra.insert("Attribute.2.Name".to_string(), "MaximumMessageSize".to_string());
+        extra.insert("Attribute.2.Value".to_string(), "262144".to_string());
+
+        let attrs = super::populate_attributes(extra);
+        assert!(attrs.is_some());
+        let attrs = attrs.unwrap();
+        assert_eq!(attrs.len(), 2);
+        assert_eq!(attrs[0].name, "DelaySeconds");
+        assert_eq!(attrs[0].value, "10");
+        assert_eq!(attrs[1].name, "MaximumMessageSize");
+        assert_eq!(attrs[1].value, "262144");
+    }
+}
+

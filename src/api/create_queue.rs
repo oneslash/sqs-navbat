@@ -1,12 +1,10 @@
 use actix_web::{web, HttpResponse};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
 
-use crate::{AppState, api::helpers};
-
-use super::helpers::ParamValues;
+use crate::AppState;
+use super::helpers;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -17,7 +15,7 @@ pub struct CreateQueueParams {
 
     #[serde(skip)]
     /// This will be populated when you call populate attributes method
-    attributes: Option<Vec<ParamValues>>,
+    attributes: Option<Vec<helpers::ParamValues>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

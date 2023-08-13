@@ -1,9 +1,10 @@
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
 use clap::Parser;
 use r2d2_sqlite::SqliteConnectionManager;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::{collections::HashMap, sync::Arc};
-use tracing::{error, info};
 use tokio::sync::Mutex;
+use tracing::{error, info};
 
 mod api;
 mod queue;
@@ -16,42 +17,42 @@ struct CliParams {
     bind_address: String,
     #[clap(short, long, default_value = "9090")]
     port: u16,
-    #[clap(short, long, default_value = "database.db")]
-    db_path: String,
+    #[clap(short, long, default_value = "sqlite://database.db")]
+    db_url: String,
     #[clap(long, default_value = "http://locahost")]
     host_name: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub db_pool: r2d2::Pool<SqliteConnectionManager>,
+    pub db_pool: SqlitePool,
     pub host_name: String,
     pub queues: Arc<Mutex<HashMap<String, queue::Queue>>>,
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli_params = CliParams::parse();
     let host_name = format!("{}:{}", cli_params.host_name, cli_params.port);
 
     info!("Creating database connection ...");
-    let conn_manager = SqliteConnectionManager::file(cli_params.db_path);
-    let pool = match r2d2::Pool::new(conn_manager) {
+    let db_pool = match SqlitePoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(1))
+        .connect(&cli_params.db_url)
+        .await
+    {
         Ok(pool) => pool,
         Err(e) => {
-            error!("Failed to create database connection pool: {}", e);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to create database connection pool",
-            ));
+            error!("Failed to connect to database: {}", e);
+            return Err(anyhow::anyhow!("Failed to connect to database"));
         }
     };
 
     let queue_list: HashMap<String, queue::Queue> = HashMap::new();
     let state = AppState {
-        db_pool: pool,
+        db_pool,
         host_name,
         queues: Arc::new(Mutex::new(queue_list)),
     };

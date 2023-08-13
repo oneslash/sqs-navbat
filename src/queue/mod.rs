@@ -56,6 +56,7 @@ mod test {
         let mut queue = Queue::new("test", vec![]);
         let message = Message {
             id: "id".to_owned(),
+            message_body: "message_body".to_owned()
         };
         queue.push(message.clone());
         assert_eq!(queue.messages.len(), 1);
@@ -67,6 +68,7 @@ mod test {
         let mut queue = Queue::new("test", vec![]);
         let message = Message {
             id: "id".to_owned(),
+            message_body: "message_body".to_owned()
         };
         queue.push(message.clone());
         queue.remove("id");
@@ -78,6 +80,7 @@ mod test {
         let mut queue = Queue::new("test", vec![]);
         let message = Message {
             id: "id".to_owned(),
+            message_body: "message_body".to_owned()
         };
         queue.push(message.clone());
         let popped = queue.pop();

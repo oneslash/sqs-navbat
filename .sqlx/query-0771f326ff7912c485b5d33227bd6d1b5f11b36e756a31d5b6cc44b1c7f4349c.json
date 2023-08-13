@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO `queues` (`name`, `tag_name`, `tag_value`) \n            VALUES ($1, $2, $3) \n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "0771f326ff7912c485b5d33227bd6d1b5f11b36e756a31d5b6cc44b1c7f4349c"
+}

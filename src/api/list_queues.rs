@@ -51,7 +51,7 @@ pub async fn process(app_state: &AppState, payload: &web::Bytes, is_json: bool) 
         params.max_results as u32,
         params.queue_name_prefix,
         params.next_token,
-    ) {
+    ).await{
         Ok(queue_urls) => queue_urls,
         Err(e) => {
             error!("Failed to list queues: {}", e);

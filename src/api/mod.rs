@@ -33,31 +33,16 @@ pub async fn post_handler(
 
     return match action.to_lowercase().as_str() {
         "amazonsqs.createqueue" | "createqueue" => {
-            create_queue::process(
-                app_state.into_inner(),
-                &payload,
-                is_json,
-            )
-            .await
+            create_queue::process(app_state.into_inner(), &payload, is_json).await
         }
         "amazonsqs.listqueues" | "listqueues" => {
             list_queues::process(&app_state, &payload, is_json).await
         }
         "amazonsqs.sendmessage" | "sendmessage" => {
-            send_message::process(
-                app_state.into_inner(),
-                &payload,
-                is_json,
-            )
-            .await
+            send_message::process(app_state.into_inner(), &payload, is_json).await
         }
         "amazonsqs.receivemessage" | "receivemessage" => {
-            receive_message::process(
-                app_state.into_inner(),
-                &payload,
-                is_json,
-            )
-            .await
+            receive_message::process(app_state.into_inner(), &payload, is_json).await
         }
         _ => return HttpResponse::BadRequest().body("Invalid action"),
     };
@@ -76,27 +61,6 @@ where
     })?;
 
     Ok(result)
-}
-
-/// Create a struct from the payload (web::Bytes)
-pub(crate) fn struct_from_xml_payload<T>(payload: &web::Bytes) -> Result<T, actix_web::Error>
-where
-    T: DeserializeOwned,
-{
-    let as_str = std::str::from_utf8(payload.as_ref())?;
-
-    // Now convert the XML to a struct
-    let result: T = match from_str(&as_str) {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(actix_web::error::ErrorInternalServerError(format!(
-                "Failed to parse payload: {}",
-                e
-            )));
-        }
-    };
-
-    return Ok(result);
 }
 
 fn get_action_name(payload: &web::Bytes, req: &HttpRequest) -> Option<String> {

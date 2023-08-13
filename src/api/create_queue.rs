@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use std::{
     collections::HashMap,
     sync::Arc,
@@ -63,10 +64,13 @@ pub async fn process(
     let db_result = service.create_queue(crate::service::queue::QueueEntity {
         id: None,
         name: payload.queue_name.clone(),
-        attributes: payload.clone().get_attrbutes_hashmap(),
-        tag: ("tag_name".to_string(), "tag_value".to_string()),
-    });
-
+        attributes: Some(payload.clone().get_attrbutes_hashmap()),
+        tag_name: Some("Hello World".to_string()),
+        tag_value: Some("Value".to_string()),
+        created_at: None,
+        updated_at: None,
+    }).await;
+    
     match db_result {
         Ok(_) => {
             let response = CreateQueueResponse {

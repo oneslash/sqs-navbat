@@ -171,7 +171,7 @@ mod tests {
             queue_name: "myqueue".to_string(),
             extra,
             attributes: None,
-            _tags: None,
+            tags: None,
         };
 
         assert!(params.create_validate_attributes().is_ok());
@@ -192,7 +192,7 @@ mod tests {
             queue_name: "myqueue".to_string(),
             extra,
             attributes: None,
-            _tags: None,
+            tags: None,
         };
 
         assert!(params.create_validate_attributes().is_err());

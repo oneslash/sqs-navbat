@@ -3,6 +3,7 @@ use crate::AppState;
 use actix_web::{web, HttpResponse};
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 use std::{collections::HashMap, sync::Arc};
 
 /// .fifo - for the FIFO queues
@@ -108,7 +109,6 @@ pub async fn process(
             return HttpResponse::BadRequest().body(format!("Failed to parse payload: {}", e))
         }
     };
-
     match payload.create_validate_attributes() {
         Ok(_) => (),
         Err(e) => {
@@ -130,6 +130,7 @@ pub async fn process(
         })
         .await;
 
+    warn!("db_result: {:?}", db_result);
     match db_result {
         Ok(_) => {
             let response = CreateQueueResponse {

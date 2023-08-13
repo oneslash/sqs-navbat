@@ -52,6 +52,16 @@ pub fn get_attrbutes_hashmap(attributes: Option<Vec<ParamValues>>) -> HashMap<St
     return map;
 }
 
+pub fn generate_random_uuid4() -> String {
+    let uuid = uuid::Uuid::new_v4();
+    uuid.to_string()
+}
+
+pub fn compute_md5(input: &str) -> String {
+    let digest = md5::compute(input);
+    format!("{:x}", digest)
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;

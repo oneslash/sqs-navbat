@@ -1,6 +1,5 @@
 use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
 use clap::Parser;
-use r2d2_sqlite::SqliteConnectionManager;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
@@ -19,7 +18,7 @@ struct CliParams {
     port: u16,
     #[clap(short, long, default_value = "sqlite://database.db")]
     db_url: String,
-    #[clap(long, default_value = "http://locahost")]
+    #[clap(long, default_value = "http://locahost:9090")]
     host_name: String,
 }
 
@@ -35,7 +34,6 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli_params = CliParams::parse();
-    let host_name = format!("{}:{}", cli_params.host_name, cli_params.port);
 
     info!("Creating database connection ...");
     let db_pool = match SqlitePoolOptions::new()
@@ -53,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     let queue_list: HashMap<String, queue::Queue> = HashMap::new();
     let state = AppState {
         db_pool,
-        host_name,
+        host_name: cli_params.host_name,
         queues: Arc::new(Mutex::new(queue_list)),
     };
 

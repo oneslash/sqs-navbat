@@ -25,9 +25,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	client := sqs.NewFromConfig(cfg)
-	_, err =client.CreateQueue(context.TODO(), &sqs.CreateQueueInput{
+	_, err = client.CreateQueue(context.TODO(), &sqs.CreateQueueInput{
 		QueueName: aws.String("myqueue"),
 	})
 	if err != nil {
@@ -43,11 +43,18 @@ func main() {
 		MessageBody: aws.String("Hello world!"),
 		QueueUrl:    aws.String("http://localhost:9090/queue/myqueue"),
 	})
+	client.SendMessage(context.TODO(), &sqs.SendMessageInput{
+		MessageBody: aws.String("Hello world!"),
+		QueueUrl:    aws.String("http://localhost:9090/queue/myqueue"),
+	})
 
 	message, err := client.ReceiveMessage(context.TODO(), &sqs.ReceiveMessageInput{
 		QueueUrl: aws.String("http://localhost:9090/queue/myqueue"),
 	})
-	fmt.Printf("Message: %v", message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Message: %s", *message.Messages[0].Body)
 	fmt.Println("")
 	fmt.Printf("Queues:\n, %v", output.QueueUrls)
 }

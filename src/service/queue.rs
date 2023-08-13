@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-
-use r2d2::PooledConnection;
-use r2d2_sqlite::SqliteConnectionManager;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 
 pub struct Queue<'a> {
     db_pool: &'a SqlitePool,
@@ -31,7 +28,7 @@ impl<'a> Queue<'a> {
     /// Attributes come from the https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html
     pub async fn create_attributes(
         &self,
-        queue_id: u32,
+        queue_id: i64,
         attributes: HashMap<String, String>,
     ) -> anyhow::Result<()> {
         for (key, value) in attributes {
@@ -65,6 +62,10 @@ impl<'a> Queue<'a> {
         .execute(self.db_pool)
         .await?
         .last_insert_rowid();
+
+        if let Some(attributes) = queue.attributes {
+            self.create_attributes(inserted_id, attributes).await?;
+        }
 
         return Ok(inserted_id.to_string());
     }

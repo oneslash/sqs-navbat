@@ -47,18 +47,21 @@ pub async fn process(app_state: &AppState, payload: &web::Bytes, is_json: bool) 
     };
 
     let service = crate::service::queue::Queue::new(&app_state.db_pool, &app_state.host_name);
-    let queue_urls = match service.list_queue(
-        params.max_results as u32,
-        params.queue_name_prefix,
-        params.next_token,
-    ).await{
+    let queue_urls = match service
+        .list_queue(
+            params.max_results as u32,
+            params.queue_name_prefix,
+            params.next_token,
+        )
+        .await
+    {
         Ok(queue_urls) => queue_urls,
         Err(e) => {
             error!("Failed to list queues: {}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
-    
+
     let id = Uuid::new_v4();
     let response = ListQueuesResponse {
         list_queues_result: ListQueuesResult {

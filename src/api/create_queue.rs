@@ -1,12 +1,8 @@
-use actix_web::{web, HttpResponse};
-use serde::{Deserialize, Serialize};
-use tracing::error;
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
 use super::helpers;
 use crate::AppState;
+use actix_web::{web, HttpResponse};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -61,16 +57,18 @@ pub async fn process(
 
     let db = &app_state.db_pool;
     let service = crate::service::queue::Queue::new(db, &app_state.host_name);
-    let db_result = service.create_queue(crate::service::queue::QueueEntity {
-        id: None,
-        name: payload.queue_name.clone(),
-        attributes: Some(payload.clone().get_attrbutes_hashmap()),
-        tag_name: Some("Hello World".to_string()),
-        tag_value: Some("Value".to_string()),
-        created_at: None,
-        updated_at: None,
-    }).await;
-    
+    let db_result = service
+        .create_queue(crate::service::queue::QueueEntity {
+            id: None,
+            name: payload.queue_name.clone(),
+            attributes: Some(payload.clone().get_attrbutes_hashmap()),
+            tag_name: Some("Hello World".to_string()),
+            tag_value: Some("Value".to_string()),
+            created_at: None,
+            updated_at: None,
+        })
+        .await;
+
     match db_result {
         Ok(_) => {
             let response = CreateQueueResponse {

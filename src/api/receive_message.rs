@@ -3,7 +3,7 @@ use serde::Serialize;
 use tracing::error;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use crate::AppState;
@@ -18,6 +18,7 @@ struct ReceiveMessageResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct ReceiveMessageResult {
+    #[serde(rename = "Message")]
     messages: Vec<Message>,
 }
 
@@ -47,22 +48,30 @@ pub async fn process(
     let mut reader = app_state.queues.lock().await;
 
     let message = (*reader).get_mut("myqueue").unwrap().pop();
-
-    error!("Payload: {:?}", message);
-    let response = ReceiveMessageResponse {
-        receive_message_result: ReceiveMessageResult {
-            messages: vec![Message {
-                message_id: "".to_string(),
+    let messages = match message {
+        Some(msg) => vec![
+            Message {
+                message_id: msg.id.to_string(),
                 receipt_handle: "".to_string(),
-                md5_of_body: "".to_string(),
-                body: message.unwrap().message_body,
+                md5_of_body: crate::api::helpers::compute_md5(msg.message_body.as_str()),
+                body: msg.message_body.to_string(),
                 attributes: HashMap::new(),
                 md5_of_message_attributes: "".to_string(),
                 message_attributes: HashMap::new(),
-            }],
+            }
+        ],
+        None => {
+            error!("No messages in queue");
+            return HttpResponse::Ok().body("<ReceiveMessageResponse></ReceiveMessageResponse>");
+        }
+    };
+
+    let response = ReceiveMessageResponse {
+        receive_message_result: ReceiveMessageResult {
+            messages,
         },
         response_metadata: ResponseMetadata {
-            request_id: "".to_string(),
+            request_id: crate::api::helpers::generate_random_uuid4(),
         },
     };
 

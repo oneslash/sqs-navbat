@@ -1,8 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
-
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 use super::helpers;
 use crate::AppState;
@@ -11,6 +9,7 @@ use crate::AppState;
 #[serde(rename_all = "PascalCase")]
 struct SendMessageParams {
     message_body: String,
+    delay_seconds: Option<i32>,
     #[serde(flatten)]
     extra: HashMap<String, String>,
 
@@ -44,11 +43,6 @@ impl SendMessageParams {
     fn populate_attributes(&mut self) {
         self.attributes = helpers::populate_attributes(self.extra.clone());
     }
-
-    /// Get the attributes as a hashmap
-    fn get_attrbutes_hashmap(self) -> HashMap<String, String> {
-        helpers::get_attrbutes_hashmap(self.attributes)
-    }
 }
 
 pub async fn process(
@@ -64,23 +58,23 @@ pub async fn process(
     };
     payload.populate_attributes();
 
-    error!("Payload: {:?}", payload);
+    let msg_id = helpers::generate_random_uuid4();
     let mut writer = app_state.queues.lock().await;
     (*writer)
         .get_mut("myqueue")
         .unwrap()
         .push(crate::queue::Message {
-            id: "".to_string(),
-            message_body: payload.message_body,
+            id: msg_id.clone(),
+            message_body: payload.message_body.clone(),
         });
 
     let response = SendMessageResponse {
         send_message_result: SendMessageResult {
-            message_id: "123".to_string(),
-            md5_of_message_body: "123".to_string(),
+            message_id: msg_id.clone(),
+            md5_of_message_body: helpers::compute_md5(payload.message_body.clone().as_str()),
         },
         reponse_metadata: ResponseMetadata {
-            request_id: "123".to_string(),
+            request_id: helpers::generate_random_uuid4(),
         },
     };
 

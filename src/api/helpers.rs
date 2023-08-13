@@ -64,6 +64,8 @@ pub fn compute_md5(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use regex::RegexBuilder;
+
     use super::*;
 
     /// test populate_attributes
@@ -78,10 +80,11 @@ mod tests {
         );
         extra.insert("Attribute.2.Value".to_string(), "262144".to_string());
 
-        let re = Regex::new(r"^Attribute\.(\d+)\.(.+)$/i").unwrap();
+        let re = RegexBuilder::new(r"^Attribute\.(\d+)\.(.+)$").case_insensitive(true).build().unwrap();
         let attrs = super::extract_from_extra(re, extra);
         assert!(attrs.is_some());
         let attrs = attrs.unwrap();
+        assert_eq!(format!("{:?}", attrs), "");
         assert_eq!(attrs.len(), 2);
         assert_eq!(attrs[0].name, "DelaySeconds");
         assert_eq!(attrs[0].value, "10");

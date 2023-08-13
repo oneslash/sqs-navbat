@@ -1,7 +1,7 @@
 use super::helpers;
 use crate::AppState;
 use actix_web::{web, HttpResponse};
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 
@@ -61,7 +61,11 @@ pub struct CreateQueueResult {
 impl CreateQueueParams {
     /// Populate the attributes from the extra hashmap
     fn create_validate_attributes(&mut self) -> anyhow::Result<()> {
-        let re = Regex::new(r"^Attribute\.(\d+)\.(.+)$/i").unwrap();
+        let re = RegexBuilder::new(r"^Attribute\.(\d+)\.(.+)$")
+            .case_insensitive(true)
+            .build()
+            .unwrap();
+
         self.attributes = helpers::extract_from_extra(re, self.extra.clone());
         if let Some(attrs) = &self.attributes {
             for attr in attrs {
@@ -75,7 +79,10 @@ impl CreateQueueParams {
     }
 
     fn create_tags(&mut self) {
-        let re = Regex::new(r"^(tags|tag)\.(.+)$/i").unwrap();
+        let re = RegexBuilder::new(r"^(tags|tag)\.(.+)$")
+            .case_insensitive(true)
+            .build()
+            .unwrap();
         self.tags = helpers::extract_from_extra(re, self.extra.clone());
     }
 

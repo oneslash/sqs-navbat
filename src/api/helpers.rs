@@ -84,7 +84,6 @@ mod tests {
         let attrs = super::extract_from_extra(re, extra);
         assert!(attrs.is_some());
         let attrs = attrs.unwrap();
-        assert_eq!(format!("{:?}", attrs), "");
         assert_eq!(attrs.len(), 2);
         assert_eq!(attrs[0].name, "DelaySeconds");
         assert_eq!(attrs[0].value, "10");

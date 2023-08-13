@@ -10,9 +10,10 @@ pub struct ParamValues {
     pub value: String,
 }
 
-pub fn populate_attributes(extra: HashMap<String, String>) -> Option<Vec<ParamValues>> {
-    // Let's live dangerously and unwrap this
-    let re = Regex::new(r"\.(\d+)\.(.+)$").unwrap();
+pub fn extract_from_extra<'a>(
+    re: Regex,
+    extra: HashMap<String, String>,
+) -> Option<Vec<ParamValues>> {
     let mut attrs: Vec<ParamValues> = Vec::new();
     for _i in 0..extra.len() {
         attrs.push(ParamValues {
@@ -33,7 +34,7 @@ pub fn populate_attributes(extra: HashMap<String, String>) -> Option<Vec<ParamVa
             }
         }
     }
-    
+
     // Cleanup empty attributes
     attrs.retain(|attr| attr.name != "");
 
@@ -42,7 +43,6 @@ pub fn populate_attributes(extra: HashMap<String, String>) -> Option<Vec<ParamVa
 
 pub fn get_attrbutes_hashmap(attributes: Option<Vec<ParamValues>>) -> HashMap<String, String> {
     let mut map = HashMap::new();
-
     if let Some(attrs) = attributes {
         for attr in attrs {
             map.insert(attr.name, attr.value);
@@ -64,7 +64,7 @@ pub fn compute_md5(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use super::*;
 
     /// test populate_attributes
     #[test]
@@ -72,10 +72,14 @@ mod tests {
         let mut extra = HashMap::new();
         extra.insert("Attribute.1.Name".to_string(), "DelaySeconds".to_string());
         extra.insert("Attribute.1.Value".to_string(), "10".to_string());
-        extra.insert("Attribute.2.Name".to_string(), "MaximumMessageSize".to_string());
+        extra.insert(
+            "Attribute.2.Name".to_string(),
+            "MaximumMessageSize".to_string(),
+        );
         extra.insert("Attribute.2.Value".to_string(), "262144".to_string());
 
-        let attrs = super::populate_attributes(extra);
+        let re = Regex::new(r"^Attribute\.(\d+)\.(.+)$/i").unwrap();
+        let attrs = super::extract_from_extra(re, extra);
         assert!(attrs.is_some());
         let attrs = attrs.unwrap();
         assert_eq!(attrs.len(), 2);
@@ -85,4 +89,3 @@ mod tests {
         assert_eq!(attrs[1].value, "262144");
     }
 }
-

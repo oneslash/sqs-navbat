@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
 use actix_web::{web, HttpResponse};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, sync::Arc};
 
 use super::helpers;
 use crate::AppState;
@@ -41,7 +42,8 @@ struct ResponseMetadata {
 impl SendMessageParams {
     /// Populate the attributes from the extra hashmap
     fn populate_attributes(&mut self) {
-        self.attributes = helpers::populate_attributes(self.extra.clone());
+        let re = Regex::new(r"^Attribute\.(\d+)\.(.+)$/i").unwrap();
+        self.attributes = helpers::extract_from_extra(re, self.extra.clone());
     }
 }
 

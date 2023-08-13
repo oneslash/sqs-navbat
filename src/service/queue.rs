@@ -10,12 +10,21 @@ pub struct Queue<'a> {
 pub struct QueueEntity {
     pub id: Option<i64>,
     pub name: String,
+    pub queue_type: String,
     pub attributes: Option<HashMap<String, String>>,
+    pub tags: Option<HashMap<String, String>>,
+    pub created_at: Option<time::OffsetDateTime>,
+    pub updated_at: Option<time::OffsetDateTime>,
+}
 
-    pub tag_name: Option<String>,
-    pub tag_value: Option<String>,
-    pub created_at: Option<String>,
-    pub updated_at: Option<String>,
+impl QueueEntity {
+    fn get_type(&self) -> String {
+        if self.queue_type.contains(".fifo"){
+            return "Fifo".to_string();
+        } else {
+            return "Standard".to_string();
+        }
+    }
 }
 
 impl<'a> Queue<'a> {
@@ -26,7 +35,7 @@ impl<'a> Queue<'a> {
     /// Create queue attributes in the database
     /// If the attribute exists, update the value
     /// Attributes come from the https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html
-    pub async fn create_attributes(
+    async fn create_attributes(
         &self,
         queue_id: i64,
         attributes: HashMap<String, String>,
@@ -35,7 +44,28 @@ impl<'a> Queue<'a> {
             sqlx::query!(
                 r#"
                 INSERT INTO `attributes` (`queue_id`, `name`, `value`) 
-                VALUES ($1, $2, $3) 
+                VALUES (?, ?, ?) 
+                "#,
+                queue_id,
+                key,
+                value
+            )
+            .execute(self.db_pool)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Create queue tags in the database
+    /// If the tag exists, update the value
+    /// Tags come from the https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html
+    async fn create_tags(&self, queue_id: i64, tags: HashMap<String, String>) -> anyhow::Result<()> {
+        for (key, value) in tags {
+            sqlx::query!(
+                r#"
+                INSERT INTO `tags` (`queue_id`, `name`, `value`) 
+                VALUES (?, ?, ?) 
                 "#,
                 queue_id,
                 key,
@@ -50,14 +80,14 @@ impl<'a> Queue<'a> {
 
     /// Get queue in the database
     pub async fn create_queue(&self, queue: QueueEntity) -> anyhow::Result<String> {
+        let queue_type = queue.get_type().clone();
         let inserted_id = sqlx::query!(
             r#"
-            INSERT INTO `queues` (`name`, `tag_name`, `tag_value`) 
-            VALUES ($1, $2, $3) 
+            INSERT INTO `queues` (`name`, `type`) 
+            VALUES (?, ?) 
             "#,
             queue.name,
-            queue.tag_name,
-            queue.tag_value
+            queue_type 
         )
         .execute(self.db_pool)
         .await?
@@ -65,6 +95,10 @@ impl<'a> Queue<'a> {
 
         if let Some(attributes) = queue.attributes {
             self.create_attributes(inserted_id, attributes).await?;
+        }
+
+        if let Some(tags) = queue.tags {
+            self.create_tags(inserted_id, tags).await?;
         }
 
         return Ok(inserted_id.to_string());
@@ -88,6 +122,7 @@ impl<'a> Queue<'a> {
         Ok(queue_urls)
     }
 
+    #[allow(dead_code)]
     pub fn send_message(&self) {
         todo!()
     }

@@ -18,7 +18,7 @@ tracing-subscriber = "0.3.17"
 regex = "1.9.1"
 serde_urlencoded = "0.7.1"
 uuid = { version = "1.4.1", features = ["v4"] }
-tokio = { version = "1.30.0", features = ["full"] }
+tokio = { version = "1.38.2", features = ["full"] }
 sqlx = { version = "0.7.1", features = ["sqlite", "runtime-tokio-rustls", "time"] }
 anyhow = "1.0.72"
 md5 = "0.7.0"

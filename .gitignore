@@ -1,1 +1,12 @@
 /target
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Compiled test binaries
+test-app/test_kafka_app
+
+# Misc artifacts
+attributes.json

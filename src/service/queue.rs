@@ -8,21 +8,24 @@ pub struct Queue<'a> {
 
 #[derive(Debug, Clone)]
 pub struct QueueEntity {
+    #[allow(dead_code)]
     pub id: Option<i64>,
     pub name: String,
     pub queue_type: String,
     pub attributes: Option<HashMap<String, String>>,
     pub tags: Option<HashMap<String, String>>,
+    #[allow(dead_code)]
     pub created_at: Option<time::OffsetDateTime>,
+    #[allow(dead_code)]
     pub updated_at: Option<time::OffsetDateTime>,
 }
 
 impl QueueEntity {
     fn get_type(&self) -> String {
-        if self.queue_type.contains(".fifo"){
-            return "Fifo".to_string();
+        if self.queue_type.contains(".fifo") {
+            "Fifo".to_string()
         } else {
-            return "Standard".to_string();
+            "Standard".to_string()
         }
     }
 }
@@ -60,7 +63,11 @@ impl<'a> Queue<'a> {
     /// Create queue tags in the database
     /// If the tag exists, update the value
     /// Tags come from the https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html
-    async fn create_tags(&self, queue_id: i64, tags: HashMap<String, String>) -> anyhow::Result<()> {
+    async fn create_tags(
+        &self,
+        queue_id: i64,
+        tags: HashMap<String, String>,
+    ) -> anyhow::Result<()> {
         for (key, value) in tags {
             sqlx::query!(
                 r#"
@@ -87,7 +94,7 @@ impl<'a> Queue<'a> {
             VALUES (?, ?) 
             "#,
             queue.name,
-            queue_type 
+            queue_type
         )
         .execute(self.db_pool)
         .await?
@@ -101,7 +108,7 @@ impl<'a> Queue<'a> {
             self.create_tags(inserted_id, tags).await?;
         }
 
-        return Ok(inserted_id.to_string());
+        Ok(inserted_id.to_string())
     }
 
     pub async fn list_queue(
@@ -120,6 +127,83 @@ impl<'a> Queue<'a> {
         });
 
         Ok(queue_urls)
+    }
+
+    /// Check if a queue exists in the database by name.
+    pub async fn queue_exists(&self, queue_name: &str) -> anyhow::Result<bool> {
+        let row: Option<(i64,)> = sqlx::query_as(r#"SELECT id FROM queues WHERE name = ?"#)
+            .bind(queue_name)
+            .fetch_optional(self.db_pool)
+            .await?;
+        Ok(row.is_some())
+    }
+
+    /// Get all attributes for a queue from the database.
+    pub async fn get_queue_attributes(
+        &self,
+        queue_name: &str,
+    ) -> anyhow::Result<HashMap<String, String>> {
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            r#"
+            SELECT a.name, a.value
+            FROM attributes a
+            JOIN queues q ON q.id = a.queue_id
+            WHERE q.name = ?
+            "#,
+        )
+        .bind(queue_name)
+        .fetch_all(self.db_pool)
+        .await?;
+
+        let mut map = HashMap::new();
+        for (name, value) in rows {
+            map.insert(name, value);
+        }
+        Ok(map)
+    }
+
+    /// Set (upsert) attributes for a queue in the database.
+    pub async fn set_queue_attributes(
+        &self,
+        queue_name: &str,
+        attrs: HashMap<String, String>,
+    ) -> anyhow::Result<()> {
+        // Look up queue id
+        let (queue_id,): (i64,) = sqlx::query_as(r#"SELECT id FROM queues WHERE name = ?"#)
+            .bind(queue_name)
+            .fetch_one(self.db_pool)
+            .await?;
+
+        for (key, value) in attrs {
+            // Try update first, then insert if no rows affected
+            let result = sqlx::query(
+                r#"
+                UPDATE attributes SET value = ?
+                WHERE queue_id = ? AND name = ?
+                "#,
+            )
+            .bind(&value)
+            .bind(queue_id)
+            .bind(&key)
+            .execute(self.db_pool)
+            .await?;
+
+            if result.rows_affected() == 0 {
+                sqlx::query(
+                    r#"
+                    INSERT INTO attributes (queue_id, name, value)
+                    VALUES (?, ?, ?)
+                    "#,
+                )
+                .bind(queue_id)
+                .bind(&key)
+                .bind(&value)
+                .execute(self.db_pool)
+                .await?;
+            }
+        }
+
+        Ok(())
     }
 
     #[allow(dead_code)]

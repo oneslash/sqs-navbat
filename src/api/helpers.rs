@@ -10,10 +10,7 @@ pub struct ParamValues {
     pub value: String,
 }
 
-pub fn extract_from_extra<'a>(
-    re: Regex,
-    extra: HashMap<String, String>,
-) -> Option<Vec<ParamValues>> {
+pub fn extract_from_extra(re: Regex, extra: HashMap<String, String>) -> Option<Vec<ParamValues>> {
     let mut attrs: Vec<ParamValues> = Vec::new();
     for _i in 0..extra.len() {
         attrs.push(ParamValues {
@@ -36,7 +33,7 @@ pub fn extract_from_extra<'a>(
     }
 
     // Cleanup empty attributes
-    attrs.retain(|attr| attr.name != "");
+    attrs.retain(|attr| !attr.name.is_empty());
 
     Some(attrs)
 }
@@ -49,7 +46,7 @@ pub fn get_attrbutes_hashmap(attributes: Option<Vec<ParamValues>>) -> HashMap<St
         }
     }
 
-    return map;
+    map
 }
 
 pub fn generate_random_uuid4() -> String {
@@ -60,6 +57,15 @@ pub fn generate_random_uuid4() -> String {
 pub fn compute_md5(input: &str) -> String {
     let digest = md5::compute(input);
     format!("{:x}", digest)
+}
+
+/// Extract the queue name from a QueueUrl like "http://localhost:9090/myqueue".
+/// Returns the last path segment.
+pub fn extract_queue_name_from_url(url: &str) -> Option<String> {
+    url.split('/')
+        .next_back()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
 }
 
 #[cfg(test)]
@@ -80,7 +86,10 @@ mod tests {
         );
         extra.insert("Attribute.2.Value".to_string(), "262144".to_string());
 
-        let re = RegexBuilder::new(r"^Attribute\.(\d+)\.(.+)$").case_insensitive(true).build().unwrap();
+        let re = RegexBuilder::new(r"^Attribute\.(\d+)\.(.+)$")
+            .case_insensitive(true)
+            .build()
+            .unwrap();
         let attrs = super::extract_from_extra(re, extra);
         assert!(attrs.is_some());
         let attrs = attrs.unwrap();

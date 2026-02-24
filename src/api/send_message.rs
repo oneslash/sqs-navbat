@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse};
-use regex::{Regex, RegexBuilder};
+use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 
@@ -9,7 +9,9 @@ use crate::AppState;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct SendMessageParams {
+    queue_url: String,
     message_body: String,
+    #[allow(dead_code)]
     delay_seconds: Option<i32>,
     #[serde(flatten)]
     extra: HashMap<String, String>,
@@ -64,30 +66,45 @@ pub async fn process(
     };
     payload.populate_attributes();
 
+    let queue_name = match helpers::extract_queue_name_from_url(&payload.queue_url) {
+        Some(name) => name,
+        None => {
+            return HttpResponse::BadRequest()
+                .body("Invalid QueueUrl: could not extract queue name")
+        }
+    };
+
     let msg_id = helpers::generate_random_uuid4();
     let mut writer = app_state.queues.lock().await;
-    (*writer)
-        .get_mut("myqueue")
-        .unwrap()
-        .push(crate::queue::Message {
-            id: msg_id.clone(),
-            message_body: payload.message_body.clone(),
-        });
+    match writer.get_mut(&queue_name) {
+        Some(queue) => {
+            queue.push(crate::queue::Message::new(
+                msg_id.clone(),
+                payload.message_body.clone(),
+            ));
+        }
+        None => {
+            return HttpResponse::BadRequest().body(format!(
+                "AWS.SimpleQueueService.NonExistentQueue; see the SQS docs. Queue: {}",
+                queue_name
+            ))
+        }
+    }
 
     let response = SendMessageResponse {
         send_message_result: SendMessageResult {
             message_id: msg_id.clone(),
-            md5_of_message_body: helpers::compute_md5(payload.message_body.clone().as_str()),
+            md5_of_message_body: helpers::compute_md5(payload.message_body.as_str()),
         },
         reponse_metadata: ResponseMetadata {
             request_id: helpers::generate_random_uuid4(),
         },
     };
 
-    return match quick_xml::se::to_string(&response) {
+    match quick_xml::se::to_string(&response) {
         Ok(resp) => HttpResponse::Ok().body(resp),
         Err(e) => {
             HttpResponse::InternalServerError().body(format!("Failed to serialize response: {}", e))
         }
-    };
+    }
 }

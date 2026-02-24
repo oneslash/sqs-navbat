@@ -1,13 +1,17 @@
 use crate::AppState;
 use actix_web::{post, web, HttpRequest, HttpResponse};
-use quick_xml::de::from_str;
 use serde::{de::DeserializeOwned, Deserialize};
 
+mod change_message_visibility;
 mod create_queue;
+mod delete_message;
+mod get_queue_attributes;
+mod get_queue_url;
 mod helpers;
 mod list_queues;
 mod receive_message;
 mod send_message;
+mod set_queue_attributes;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -31,7 +35,7 @@ pub async fn post_handler(
         return HttpResponse::BadRequest().body("JSON is not supported yet");
     }
 
-    return match action.to_lowercase().as_str() {
+    match action.to_lowercase().as_str() {
         "amazonsqs.createqueue" | "createqueue" => {
             create_queue::process(app_state.into_inner(), &payload, is_json).await
         }
@@ -44,8 +48,23 @@ pub async fn post_handler(
         "amazonsqs.receivemessage" | "receivemessage" => {
             receive_message::process(app_state.into_inner(), &payload, is_json).await
         }
-        _ => return HttpResponse::BadRequest().body("Invalid action"),
-    };
+        "amazonsqs.deletemessage" | "deletemessage" => {
+            delete_message::process(app_state.into_inner(), &payload, is_json).await
+        }
+        "amazonsqs.changemessagevisibility" | "changemessagevisibility" => {
+            change_message_visibility::process(app_state.into_inner(), &payload, is_json).await
+        }
+        "amazonsqs.getqueueurl" | "getqueueurl" => {
+            get_queue_url::process(app_state.into_inner(), &payload, is_json).await
+        }
+        "amazonsqs.getqueueattributes" | "getqueueattributes" => {
+            get_queue_attributes::process(app_state.into_inner(), &payload, is_json).await
+        }
+        "amazonsqs.setqueueattributes" | "setqueueattributes" => {
+            set_queue_attributes::process(app_state.into_inner(), &payload, is_json).await
+        }
+        _ => HttpResponse::BadRequest().body("Invalid action"),
+    }
 }
 
 pub(crate) fn struct_from_url_encode<T>(payload: &web::Bytes) -> Result<T, actix_web::Error>
@@ -64,14 +83,14 @@ where
 }
 
 fn get_action_name(payload: &web::Bytes, req: &HttpRequest) -> Option<String> {
-    return match req.headers().get("x-amz-target") {
+    match req.headers().get("x-amz-target") {
         Some(target) => Some(target.to_str().unwrap().to_string()),
         None => {
-            let act = struct_from_url_encode::<RequestPayload>(&payload);
+            let act = struct_from_url_encode::<RequestPayload>(payload);
             if act.is_err() {
                 return None;
             }
             Some(act.unwrap().action.to_string())
         }
-    };
+    }
 }
